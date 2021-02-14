@@ -7,7 +7,7 @@ option(RTMIDI17_NO_WINMM "Disable WinMM back-end" OFF)
 option(RTMIDI17_NO_WINUWP "Disable UWP back-end" ON)
 option(RTMIDI17_NO_JACK "Disable JACK back-end" OFF)
 option(RTMIDI17_NO_ALSA "Disable ALSA back-end" OFF)
-option(RTMIDI17_EXAMPLES "Enable examples" OFF)
+option(RTMIDI17_EXAMPLES "Enable examples" ON)
 
 include(CheckSymbolExists)
 ### Main library ###
@@ -20,9 +20,23 @@ if(RTMIDI17_HEADER_ONLY)
   target_compile_definitions(RtMidi17 ${_public} RTMIDI17_HEADER_ONLY)
 else()
   add_library(RtMidi17
-    rtmidi17/rtmidi17.cpp
-    rtmidi17/reader.cpp
-    rtmidi17/writer.cpp
+    include/rtmidi17/detail/alsa.hpp
+    include/rtmidi17/detail/coreaudio.hpp
+    include/rtmidi17/detail/dummy.hpp
+    include/rtmidi17/detail/jack.hpp
+    include/rtmidi17/detail/midi_api.hpp
+    include/rtmidi17/detail/semaphore.hpp
+    include/rtmidi17/detail/winmm.hpp
+    include/rtmidi17/detail/winuwp.hpp
+
+    include/rtmidi17/message.hpp
+    include/rtmidi17/reader.hpp
+    include/rtmidi17/writer.hpp
+    include/rtmidi17/rtmidi17.hpp
+
+    include/rtmidi17/rtmidi17.cpp
+    include/rtmidi17/reader.cpp
+    include/rtmidi17/writer.cpp
   )
   set(_public PUBLIC)
 endif()
@@ -31,6 +45,10 @@ target_compile_features(RtMidi17 ${_public} cxx_std_17)
 
 find_package(Threads)
 target_link_libraries(RtMidi17 ${_public} ${CMAKE_THREAD_LIBS_INIT})
+
+target_include_directories(RtMidi17 ${_public}
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 if(APPLE)
   ## CoreMIDI support ##
@@ -55,18 +73,14 @@ elseif(WIN32)
     target_compile_definitions(RtMidi17
       ${_public}
         RTMIDI17_WINMM
-        WIN32=1
         UNICODE=1
         _UNICODE=1
     )
     target_link_libraries(RtMidi17 ${_public} winmm)
-    target_include_directories(RtMidi17 ${_public}
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   endif()
 
   ## UWP MIDI support ##
   if(NOT RTMIDI17_NO_WINUWP)
-    target_include_directories(RtMidi17 ${_public} $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
     set(WINSDK_PATH "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]")
     find_path(CPPWINRT_PATH "winrt/base.h"
         PATHS
@@ -98,7 +112,6 @@ endif()
 
 ## JACK support ##
 if(NOT RTMIDI17_NO_JACK)
-
   find_path(WEAKJACK_PATH weakjack/weak_libjack.h HINTS ${WEAKJACK_FOLDER})
   find_path(JACK_PATH jack/jack.h)
   if(WEAKJACK_PATH AND JACK_PATH)
@@ -167,4 +180,24 @@ if(RTMIDI17_EXAMPLES)
 
   add_executable(sysextest tests/sysextest.cpp)
   target_link_libraries(sysextest PRIVATE RtMidi17)
+
+  add_executable(midi2 tests/midi2.cpp)
+  target_link_libraries(midi2 PRIVATE RtMidi17)
+endif()
+
+find_package(Catch2)
+if(TARGET Catch2::Catch2)
+  target_compile_features(RtMidi17 PUBLIC cxx_std_20)
+
+  add_executable(midiout_test tests/unit/midi_out.cpp)
+  target_link_libraries(midiout_test PRIVATE RtMidi17 Catch2::Catch2)
+
+  add_executable(midifile_read_test tests/unit/midifile_read.cpp)
+  target_link_libraries(midifile_read_test PRIVATE RtMidi17 Catch2::Catch2)
+  target_compile_definitions(midifile_read_test PRIVATE "RTMIDI_TEST_CORPUS=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus\"")
+
+  include(CTest)
+  include(Catch)
+  catch_discover_tests(midiout_test)
+  catch_discover_tests(midifile_read_test)
 endif()
