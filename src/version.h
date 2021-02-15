@@ -2,6 +2,6 @@
 #define VERSION_H
 
 #define GIT_BRANCH "release"
-#define GIT_COMMIT_HASH "4f112ed"
+#define GIT_COMMIT_HASH "427fdb1"
 
 #endif
