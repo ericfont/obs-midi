@@ -6,6 +6,7 @@ on:
       - release
       - master
       - macCItest
+      - tests
     paths-ignore:
       - 'docs/**'
   pull_request:
